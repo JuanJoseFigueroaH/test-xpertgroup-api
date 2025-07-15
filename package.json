@@ -1,0 +1,9 @@
+{
+    "name": "Test_XpertGroup-Api",
+    "version": "1.0.0",
+    "author": "Juan Figueroa",
+    "devDependencies": {
+        "serverless-python-requirements": "^6.1.1",
+        "serverless-latest-layer-version": "^2.1.2"
+    }
+}

@@ -1,0 +1,79 @@
+org: ${env:SERVERLESS_ORG}
+app: ${env:APP_NAME}
+service: ${env:APP_NAME}-${env:CI_PROJECT_NAME}
+
+package:
+  patterns:
+    - src/**
+    - '!node_modules/**'
+    - '!./aws/**'
+    - '!.serverless/**'
+    - 'src/!__pycache__/**'
+    - '!env/**'
+    - '!venv/**'
+    - '!.env**'
+    - '!package**'
+    - '!awscli**'
+    - '!**.md'
+    - '!**requirements**'
+    - '!.git**'
+
+plugins:
+  - serverless-python-requirements
+  - serverless-latest-layer-version
+
+state: s3-state-resolver
+
+stages:
+  default:
+    resolvers:
+      my-aws-account:
+        type: aws
+        s3-state-resolver:
+          type: s3
+          bucketName: ${env:AWS_S3_DEPLOYMENT_BUCKET}
+
+provider:
+  name: aws
+  runtime: python3.10
+  region: ${env:AWS_DEFAULT_REGION}
+  stage: ${opt:stage, self:custom.default_stage}
+  deploymentPrefix: ${env:APP_NAME}-${env:CI_PROJECT_NAME}-${self:provider.stage}
+  deploymentBucket:
+    name: ${env:AWS_S3_DEPLOYMENT_BUCKET}
+    serverSideEncryption: AES256
+    skipPolicySetup: true
+    versioning: false
+  apiGateway:
+    restApiId: ${env:EXISTING_API_GATEWAY_ID}
+    restApiRootResourceId: ${env:EXISTING_API_ROOT_RESOURCE_ID}
+  tags:
+    environment: ${opt:stage, self:custom.default_stage}
+    org: ${env:SERVERLESS_ORG}
+    app: ${env:APP_NAME}
+    project: ${env:CI_PROJECT_NAME}
+  environment:
+    STAGE: ${self:provider.stage}
+    APP_NAME: ${env:APP_NAME}
+    CI_PROJECT_NAME: ${env:CI_PROJECT_NAME}
+
+custom:
+  default_stage: dev
+  pythonRequirements:
+    dockerizePip: false
+    layer:
+      name: ${env:APP_NAME}-${env:CI_PROJECT_NAME}-${self:provider.stage}
+      description: Serverless Lambda Example
+      compatibleRuntimes:
+        - python3.10
+
+functions:
+  mvp-function:
+    name: ${env:APP_NAME}-${env:CI_PROJECT_NAME}-${self:provider.stage}
+    handler: src.main.handler
+    layers:
+      - { Ref: PythonRequirementsLambdaLayer }
+    events:
+      - http:
+          method: any
+          path: /{proxy+}
